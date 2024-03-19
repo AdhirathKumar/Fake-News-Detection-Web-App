@@ -25,7 +25,7 @@ def check_iftrusted(url):
         "huffpost",
         "ndtv",
         "indiatoday",
-        "theindianexpress",
+        "indianexpress",
         "thehindu",
         "news18",
         "firstpost",
