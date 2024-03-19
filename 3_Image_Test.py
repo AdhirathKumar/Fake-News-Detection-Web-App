@@ -1,8 +1,12 @@
 import streamlit as st
 import numpy as np
-from tensorflow.keras.models import load_model
-import PIL
-from PIL import Image
+
+# from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing.image import img_to_array, load_img
+
+# import PIL
+
+# from PIL import Image
 import google.generativeai as ga
 
 import asyncio
@@ -16,47 +20,39 @@ async def load_models_async():
 
 
 async def main():
-    CAPTIONING_MODEL = await load_models_async()
-
-    @st.cache_resource
-    def load_the_model():
-        model = load_model("old_trained_model.h5")
-        return model
-
-    model = load_the_model()
-
-    def predict(img):
-        img = img.resize((256, 256), Image.LANCZOS)
-        processed_image = np.array(img) / 255.0
-        prediction = model.predict(np.expand_dims(processed_image, axis=0))
-        class_label = "real" if prediction[0][0] > 0.5 else "fake"
-        return class_label
-
-    # @st.cache_data
-    # def configure_api_key():
-    #     GOOGLE_API_KEY = (
-    #         "AIzaSyB2ml0oownht1RfN69k8O3msz8S547WgJ8"  # Replace with your actual API key
-    #     )
-    #     ga.configure(api_key=GOOGLE_API_KEY)
-
-    CAPTIONING_MODEL = ga.GenerativeModel("gemini-pro-vision")
-
-    st.title("Image test(Work in progress)")
-    uploaded_file = st.file_uploader(
-        "Choose a media file...", type=["jpg", "png", "jpeg", "mp4"]
+    TEXT_CLASSIFIER, SUMMARIZATION_MODEL, CAPTIONING_MODEL, DEEPFAKE_CLASSIFIER = (
+        await load_models_async()
     )
-    if uploaded_file is not None:
-        img = PIL.Image.open(uploaded_file)
-        prediction = predict(img)
-        st.write(f"Predicted class: {prediction}")
-        caption = CAPTIONING_MODEL.generate_content(
-            ["Generate a short caption for the image", img], stream=True
-        )
 
-        caption.resolve()
-        st.image(img)
-        st.header("Caption:")
-        st.write(caption.text)
+    # Function to load and preprocess image
+
+    def preprocess_image(image):
+        image = load_img(image, target_size=(256, 256))
+        image = img_to_array(image)
+        image = np.expand_dims(image, axis=0)
+        image /= 255.0  # Normalize pixel values
+        return image
+
+    # Function to predict class of the image
+    def predict_image_class(image_path, classifier):
+        image = preprocess_image(image_path)
+        prediction = classifier.predict(image)
+        predicted_class = "Real" if prediction > 0.5 else "Deepfake"
+        return predicted_class
+
+    st.title("Image Deepfake Detection")
+
+    # File uploader
+    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+
+    if uploaded_file is not None:
+        # Display the uploaded image
+        image = load_img(uploaded_file)
+        st.image(image, caption="Uploaded Image.", use_column_width=True)
+
+        # Predict the class of the image
+        predicted_class = predict_image_class(uploaded_file, DEEPFAKE_CLASSIFIER)
+        st.write("Prediction:", predicted_class)
 
 
 if __name__ == "__main__":
